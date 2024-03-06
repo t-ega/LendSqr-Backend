@@ -1,0 +1,19 @@
+# Dependency directories
+node_modules/
+dist/
+
+# Environment variables
+.env
+
+# Build artifacts
+build/
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+logs/
+
+# Testing artifacts
+coverage/
