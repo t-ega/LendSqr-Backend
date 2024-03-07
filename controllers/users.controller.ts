@@ -28,7 +28,7 @@ class UserController {
         */
         const userId  = req.userId as number;
 
-        const user = await this.userRepository.getUserById(userId);
+        const user = await this.userRepository.getUser(userId);
 
         const account = await db("accounts").select("account_number", "balance").where({owner: userId}).first();
 

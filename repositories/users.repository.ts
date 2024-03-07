@@ -2,19 +2,20 @@ import { Knex } from "knex";
 import db from "../db/knex";
 import { UserDto } from "../dto/user.dto";
 import { User } from "knex/types/tables";
+import UserRepositoryInterface from "./userRepositoryInterface";
 
 /**
  * UserRepository class encapsulates database operations related to users.
  * This is going to be injected into classess that needs it.
  */
-class UserRepository {
+class UserRepository implements UserRepositoryInterface {
 
     /**
      * Retrieves user details based on the user ID.
      * @param userId The ID of the user to retrieve.
      * @returns A Promise resolving to the user details if found, otherwise undefined.
      */
-    async getUserById(userId: number): Promise<Partial<User> | undefined>{
+    async getUser(userId: number): Promise<Partial<User> | undefined>{
         return await db("users").select("id", "first_name", "last_name", "email", "phone_number")
             .where({ id: userId }).first();
     }
