@@ -11,8 +11,10 @@ const config: { [key: string]: Knex.Config } = {
       user: "your_database_user",
       password: "your_database_password",
       database: "myapp_test",
-    },
+    },  
 
+    acquireConnectionTimeout: 10000,
+    
     migrations: {
       tableName: "knex_migrations",
       directory: __dirname + "/db/migrations",
@@ -31,6 +33,8 @@ const config: { [key: string]: Knex.Config } = {
     migrations: {
       directory: __dirname + "/db/migrations",
     },
+
+    acquireConnectionTimeout: 20000,
 
     seeds: {
       directory: __dirname + "db/seeds",
