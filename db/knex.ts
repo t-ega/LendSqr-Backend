@@ -1,13 +1,14 @@
 import { config } from "dotenv";
 import knex from "knex";
 
-import knexConfig from "../knex_config";
+import knexConfig from "../knexfile";
 
+// initialize the environment variables
 config();
 
-const { NODE_ENV } = process.env
+const { NODE_ENV} = process.env;
+const environment = NODE_ENV || "development";
 
-var env = NODE_ENV || "development";
-const db = knex(knexConfig[env]);
+const db = knex(knexConfig[environment]);
 
 export default db;

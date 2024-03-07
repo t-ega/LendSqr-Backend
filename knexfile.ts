@@ -1,7 +1,10 @@
-const config = {
+import type { Knex } from "knex";
 
+
+const config: { [key: string]: Knex.Config } = {
   development: {
     client: "mysql",
+
     connection: {
       host: "127.0.0.1",
       port: 3000,
@@ -9,9 +12,12 @@ const config = {
       password: "your_database_password",
       database: "myapp_test",
     },
+
     migrations: {
+      tableName: "knex_migrations",
       directory: __dirname + "/db/migrations",
     },
+
     seeds: {
       directory: __dirname + "db/seeds",
     },
@@ -19,19 +25,17 @@ const config = {
 
   production: {
     client: "mysql",
-    connection: {
-      host: process.env.DB_URL,
-      port: process.env.DB_PORT,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWWORD,
-      database: process.env.DB_NAME,
-    },
+
+    connection: process.env.DATABASE_URL,
+
     migrations: {
       directory: __dirname + "/db/migrations",
     },
+
     seeds: {
       directory: __dirname + "db/seeds",
-    },
+    }
+
   }
 
 };
