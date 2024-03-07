@@ -3,8 +3,30 @@ import { DepositFundsDto } from "../dto/deposit.dto";
 import db from "../db/knex";
 import { CreateTransferDto } from "../dto/transfer.dto";
 import { WithdrawalDto } from "../dto/withdrawal.dto";
+import { AccountDto } from "../dto/account.dto";
+import { Account } from "knex/types/tables";
 
 class AccountsController {
+
+    private generateAccountNumber(): number {
+        /**
+         * In the internal systems every account number 
+         * must start with `21`
+         */
+         let randomNumber = Math.floor(Math.random() * 90000000) + 10000000;
+         // every account number is prefixed with a 21
+         const accountNumber =  "21" + randomNumber.toString();
+         return parseInt(accountNumber)
+    }
+
+    async createAccount(accountDto: AccountDto) : Promise<Account | undefined>{
+        const account_number = this.generateAccountNumber();
+        await db("accounts").insert({...accountDto, account_number});
+
+        // MySQL doesn't support returning of columns so we have to query again
+        const account = await db("accounts").select().where(account_number).first();
+        return account;
+    }
 
     /**
      * Retrieves an account by its account number

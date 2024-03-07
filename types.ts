@@ -1,5 +1,4 @@
-import { Request } from 'express';
-import { Knex } from 'knex';
+import { Knex } from "knex";
 
 /**
  *  we are using Object.freeze to make it immutable.
@@ -24,9 +23,7 @@ declare module 'knex/types/tables' {
         first_name: string;
         last_name: string;
         email: string;
-        password: string;
         phone_number: string;
-        is_active: boolean;
         role: typeof UserRoles;
         last_login: Date;
         created_at: Date;
@@ -42,7 +39,16 @@ declare module 'knex/types/tables' {
   
   interface Tables {
     users: User
-    accounts: Account
+    accounts: Account,
+    users_composite: Knex.CompositeTableType<
+    User,
+    Partial<User>
+    >,
+    // accounts_composite: Knex.CompositeTableType<
+    // Account,
+    // Partial<Account>
+    // >
+
     }
 }
 

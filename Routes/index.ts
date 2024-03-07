@@ -1,2 +1,4 @@
 import UserRouter from "./users.routes";
-export { UserRouter }
+import AccountRouter from "./accounts.routes";
+
+export { UserRouter, AccountRouter }

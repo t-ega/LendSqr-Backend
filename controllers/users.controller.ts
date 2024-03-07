@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import db from "../db/knex";
 import { validateUser } from "../validators/create-user.validator";
-import { UserDto } from "../dto/user.dto";
+import accountController from "./account.controller";
 
 class UserController {
     /**
@@ -22,7 +22,7 @@ class UserController {
         const { userId } = req;
 
         const user = await db("users").select('first_name', 'last_name', "email",
-         "phone_number", "last_login", 'is_active').where({id: userId}).first();
+         "phone_number", "last_login").where({id: userId}).first();
 
         return res.json(user);
     }
@@ -30,29 +30,42 @@ class UserController {
 
     async create(req: Request, res: Response): Promise<Response> {
     /**
-         * Register a new user
+         * Register a new user and then creates an account for them.
     */
 
     // perform validation
     const { error, value } = validateUser(req.body);
 
-    // extract the password and return password from the body of the request
-    const {repeat_password, password, ...data} = value as UserDto;
 
     if (error) {
         return res.status(400).json({ success: false, details: error.details[0].message });
     }
 
     // check if the user exists
-    const exists = await db("users").select("id").where({email: data.email, phone_number: data.phone_number}).first();
+    const exists = await db("users").select("id").where({email: value.email, phone_number: value.phone_number}).first();
 
     if (exists) {
         return res.status(400).json({success: false, details: "A user with that email or phone number already exists"});
     }
 
-    await db("users").insert({...data, password});
+    await db("users").insert({...value}).first();
 
-    return res.json(data);
+    // MySQL doesn't support returning of columns so we have to query again
+    const user = await db("users").select().where({email: value.email}).first();
+
+    if (user) {
+
+        // create an account for that user
+        const accountDto = {
+            owner: user.id,
+            pin: value.pin
+        };
+    
+        const account = await accountController.createAccount(accountDto);
+        return res.json(...value, account?.account_number);
+    }
+
+    return res.json(...value);
 
     }
 
