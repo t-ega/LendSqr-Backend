@@ -35,6 +35,8 @@ class AccountsController {
         const userId = req.userId as number;
         const { amount } = req.body as DepositFundsDto;
 
+        if (amount <= 0) return res.status(400).json(ErrorFactory.getError("Invalid amount"));
+
         // Find the account to deposit into
         const account = await this.accountsRepository.findByOwnerId(userId);
         if (!account) return res.status(404).json(ErrorFactory.getError("Bank account doesn't exist"));
@@ -82,8 +84,14 @@ class AccountsController {
 
         const { source, amount, transaction_pin, destination } = value as CreateTransferDto;
 
+        if (source === destination) {
+            return res.status(400).json(ErrorFactory.getError("Sender and recipient account cannot be the same"));
+        }
+
         const senderAccount = await this.accountsRepository.find(source);
+
         const recipientAccount = await this.accountsRepository.find(destination);
+
 
         // Check for various transfer conditions
         if (amount <= 0) {
@@ -96,10 +104,6 @@ class AccountsController {
         
         if (senderAccount.owner != req_user_id) {
             return res.status(400).json(ErrorFactory.getError("You are not allowed to transfer from this account" ));
-        }
-        
-        if (source === destination) {
-            return res.status(400).json(ErrorFactory.getError("Sender and recipient account cannot be the same"));
         }
         
         if (senderAccount.balance < amount) {

@@ -56,7 +56,6 @@ class AccountRepository implements AccountRepositoryInterface {
         const { owner, balance} = accountDto;
         return await trx("accounts").where({ owner }).update({ balance });
     }
-
 }
 
 export default AccountRepository;
