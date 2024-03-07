@@ -99,7 +99,7 @@ class AccountsController {
      * @param res The response object
      * @returns JSON response indicating success or failure of the withdrawal
      */
-    async withdrawFunds(req: Request, res: Response): Promise<Response> {
+    async withdraw(req: Request, res: Response): Promise<Response> {
         const { source, amount, pin,  destination, destinationBankName } = req.body as WithdrawalDto;
      
         // Fetch the source account
