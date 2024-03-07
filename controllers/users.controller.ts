@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import bcyrpt from "bcrypt";
 
 import db from "../db/knex";
 import { validateUser } from "../validators/create-user.validator";
@@ -71,9 +72,12 @@ class UserController {
             throw new Error("An error occurred while creating the user");
         }
 
+        const saltOrRounds = 10
+        const hashedPin = await bcyrpt.hash(pin, saltOrRounds);
+
         const accountDto = {
             owner: user.id,
-            transaction_pin: pin
+            transaction_pin: hashedPin
         };
         
         // create an account for that user

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import bcrypt from "bcrypt";
 
 import db from "../db/knex";
 import { DepositFundsDto } from "../dto/deposit.dto";
@@ -8,6 +9,7 @@ import { UpdateAccountDto } from "../dto/update-account.dto";
 import ErrorFactory from "../errorFactory.factory";
 import AccountRepository from "../repositories/account.repository";
 import { validateTransfer } from "../validators/transfer.validator";
+import { validateWithdrawal } from "../validators/withdraw.validator";
 
 class AccountsController {
 
@@ -72,13 +74,13 @@ class AccountsController {
     transfer = async (req: Request, res: Response): Promise<Response> => {
         const req_user_id = req.userId;
 
-        const { error }  = validateTransfer(req.body);
+        const { error, value }  = validateTransfer(req.body);
 
         if (error) {
             return res.status(400).json(ErrorFactory.getError(error.details[0].message))
         }
 
-        const { source, amount, transaction_pin: pin, destination } = req.body as CreateTransferDto;
+        const { source, amount, transaction_pin, destination } = value as CreateTransferDto;
 
         const senderAccount = await this.accountsRepository.find(source);
         const recipientAccount = await this.accountsRepository.find(destination);
@@ -104,7 +106,7 @@ class AccountsController {
             return res.status(400).json(ErrorFactory.getError("Insufficient funds in the sender account." ));
         }
 
-        const isValid = (senderAccount.pin === pin);
+        const isValid = await bcrypt.compare(transaction_pin, senderAccount.transaction_pin);
 
         if (!isValid) {
              return res.status(400).json(ErrorFactory.getError("Invalid transaction pin"));
@@ -152,14 +154,32 @@ class AccountsController {
      * @returns JSON response indicating success or failure of the withdrawal
      */
     withdraw = async (req: Request, res: Response): Promise<Response> => {
-        const { source, amount, transaction_pin: pin,  destination, destinationBankName } = req.body as WithdrawalDto;
+
+        // validate data
+        const { error, value } = validateWithdrawal(req.body);
+
+        if (error) {
+            return res.status(400).json(ErrorFactory.getError(error.details[0].message));
+        }
+
+        const { source, amount, transaction_pin: pin,  destination, destinationBankName } = value as WithdrawalDto;
      
         // Fetch the source account
         const sourceAccount = await this.accountsRepository.find(source);
      
         // Check if source account exists and has sufficient balance and pin is valid
-        if (!sourceAccount || sourceAccount.balance < amount || sourceAccount.pin !== pin) {
-            return res.status(400).json(ErrorFactory.getError("Invalid withdrawal request"));
+        if (!sourceAccount) {
+            return res.status(400).json(ErrorFactory.getError("Source Bank account do not exist."));
+        }
+
+        if (sourceAccount.balance < amount) {
+            return res.status(400).json(ErrorFactory.getError("Insufficient funds in the sender account." ));
+        }
+
+        const isValid = await bcrypt.compare(pin, sourceAccount.transaction_pin);
+
+        if (!isValid) {
+             return res.status(400).json(ErrorFactory.getError("Invalid transaction pin"));
         }
 
         try {

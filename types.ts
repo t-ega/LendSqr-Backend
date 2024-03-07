@@ -32,7 +32,7 @@ declare module 'knex/types/tables' {
       owner: number
       account_number: number
       balance: number
-      pin: number
+      transaction_pin: string // so we can hash it
     }
   
   interface Tables {
