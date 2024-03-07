@@ -1,17 +1,13 @@
 import type { Knex } from "knex";
+import {configDotenv} from "dotenv";
 
+configDotenv();
 
 const config: { [key: string]: Knex.Config } = {
   development: {
     client: "mysql",
 
-    connection: {
-      host: "127.0.0.1",
-      port: 3000,
-      user: "your_database_user",
-      password: "your_database_password",
-      database: "myapp_test",
-    },  
+    connection: process.env.DATABASE_URL, 
 
     acquireConnectionTimeout: 10000,
     

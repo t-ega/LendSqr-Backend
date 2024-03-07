@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" ",
     "start": "tsc && node ./lib/server.js",
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "migrate": "knex migrate:latest"
   },
   "keywords": [],
   "author": "",

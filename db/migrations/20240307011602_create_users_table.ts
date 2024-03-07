@@ -3,7 +3,7 @@ import { UserRoles } from "../../types";
 
 
 export async function up(knex: Knex): Promise<void> {
-    knex.schema.createTable('users', function(table) {
+    return knex.schema.createTable('users', function(table) {
         table.increments("id");
         table.string("first_name", 255).notNullable();
         table.string("last_name", 255).notNullable();
@@ -23,6 +23,6 @@ export async function up(knex: Knex): Promise<void> {
 
 
 export async function down(knex: Knex): Promise<void> {
-    knex.schema.dropTable("users");
+    return knex.schema.dropTable("users");
 }
 
