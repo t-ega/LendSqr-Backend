@@ -7,6 +7,7 @@ import { WithdrawalDto } from "../dto/withdrawal.dto";
 import { UpdateAccountDto } from "../dto/update-account.dto";
 import ErrorFactory from "../errorFactory.factory";
 import AccountRepository from "../repositories/account.repository";
+import { validateTransfer } from "../validators/transfer.validator";
 
 class AccountsController {
 
@@ -28,32 +29,36 @@ class AccountsController {
      * @param res The response object
      * @returns JSON response indicating success or failure of the deposit
      */
-    async deposit(req: Request, res: Response): Promise<Response> {
-        const userId = req.userId;
-        const { account_number, amount } = req.body as DepositFundsDto;
+    deposit = async (req: Request, res: Response): Promise<Response> => {
+        const userId = req.userId as number;
+        const { amount } = req.body as DepositFundsDto;
 
         // Find the account to deposit into
-        const account = await this.accountsRepository.find(account_number);
-        if (!account) return res.status(404).json(ErrorFactory.getError("Destination account doesn't exist"));
+        const account = await this.accountsRepository.findByOwnerId(userId);
+        if (!account) return res.status(404).json(ErrorFactory.getError("Bank account doesn't exist"));
 
         const updatedBalance = account.balance + amount;
-
+        
         const updateDto = {
             balance: updatedBalance,
             owner: userId
         } as UpdateAccountDto;
-
+        
         try {
             // Perform the deposit
             await db.transaction(async (trx) => {
-                await this.accountsRepository.update(trx, updateDto);
+                const res = await this.accountsRepository.update(trx, updateDto);
+                if(res != 1) {
+                    console.log(res)
+                    throw new Error("Deposit failed");                
+                }
             })
         }
         catch(error) {
             return this.handleTransactionError(res, error);
         }
 
-        return res.json({ success: true, details: { account } });
+        return res.json({ success: true, details: { ...updateDto } });
     }
 
     /**
@@ -62,12 +67,20 @@ class AccountsController {
      * @param res The response object
      * @returns JSON response indicating success or failure of the transfer
      */
-    async transfer(req: Request, res: Response): Promise<Response> {
+    transfer = async (req: Request, res: Response): Promise<Response> => {
         const req_user_id = req.userId;
+
+        const { error }  = validateTransfer(req.body);
+
+        if (error) {
+            return res.status(400).json(ErrorFactory.getError(error.details[0].message))
+        }
+
         const { source, amount, transaction_pin: pin, destination } = req.body as CreateTransferDto;
 
         // Ensure atomicity
         const senderAccount = await this.accountsRepository.find(source);
+        console.log(senderAccount, req_user_id)
         const recipientAccount = await this.accountsRepository.find(destination);
 
         // Check for various transfer conditions
@@ -79,7 +92,7 @@ class AccountsController {
             return res.status(400).json(ErrorFactory.getError("One or both bank accounts do not exist."));
         }
         
-        if (senderAccount.owner !== req_user_id) {
+        if (senderAccount.owner != req_user_id) {
             return res.status(400).json(ErrorFactory.getError("You are not allowed to transfer from this account" ));
         }
         
@@ -132,7 +145,7 @@ class AccountsController {
      * @param res The response object
      * @returns JSON response indicating success or failure of the withdrawal
      */
-    async withdraw(req: Request, res: Response): Promise<Response> {
+    withdraw = async (req: Request, res: Response): Promise<Response> => {
         const { source, amount, transaction_pin: pin,  destination, destinationBankName } = req.body as WithdrawalDto;
      
         // Fetch the source account

@@ -43,9 +43,18 @@ class AccountRepository implements AccountRepositoryInterface {
         return await db("accounts").select().where({ account_number: accountNumber }).first();
     }
 
-    async update(trx: Knex.Transaction, accountDto: UpdateAccountDto) : Promise<number[]>{
+    /**
+     * Retrieves an account by its owner Id
+     * @param accountNumber The account number to retrieve
+     * @returns Promise resolving to the account object if found, otherwise null
+     */
+    async findByOwnerId(ownerId: number): Promise<Account | undefined> {
+        return await db("accounts").select().where({ owner: ownerId }).first();
+    }
+
+    async update(trx: Knex.Transaction, accountDto: UpdateAccountDto) : Promise<number>{
         const { owner, balance} = accountDto;
-        return await trx("accounts").insert({ balance }).where({ owner})
+        return await trx("accounts").where({ owner }).update({ balance });
     }
 
 }
