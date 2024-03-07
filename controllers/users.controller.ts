@@ -19,7 +19,7 @@ class UserController {
    * **Note**: Features such as funding, withdrawal, and transfer are handled by the account controller.
    */
 
-    async getUser(req: Request, res: Response) : Promise<Response> {
+    getUser = async (req: Request, res: Response) : Promise<Response> => {
         /** 
          * For this controller to be called, it would pass through an **auth middleware** which would populate it
          * with the **userId** property.
@@ -30,13 +30,13 @@ class UserController {
 
         const user = await this.userRepository.getUser(userId);
 
-        const account = await db("accounts").select("account_number", "balance").where({owner: userId}).first();
+        const account = await this.accountsRepository.findByOwnerId(userId);
 
         return res.json({user, account});
     }
 
 
-    async create(req: Request, res: Response) {
+    create = async (req: Request, res: Response) => {
     /**
          * Register a new user and then creates an account for them.
          * This method makes use of the transactions feature of knex to ensure that
