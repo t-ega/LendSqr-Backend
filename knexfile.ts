@@ -5,7 +5,8 @@ configDotenv();
 
 const config: { [key: string]: Knex.Config } = {
   development: {
-    client: "mysql",
+    client: "mysql2", // I was having issues with my localdtabase while using sql, 
+    // so I changed it to mysql2. Note: mysql works fine with the production database.
 
     connection: process.env.DATABASE_URL, 
 

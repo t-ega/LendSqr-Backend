@@ -47,9 +47,11 @@ class AccountsController {
         try {
             // Perform the deposit
             await db.transaction(async (trx) => {
-                const res = await this.accountsRepository.update(trx, updateDto);
-                if(res != 1) {
-                    console.log(res)
+                
+                const depositResult = await this.accountsRepository.update(trx, updateDto);
+
+                // Returns the number of affected rows, the deposit should affect only one row
+                if(depositResult != 1) {
                     throw new Error("Deposit failed");                
                 }
             })
@@ -78,9 +80,7 @@ class AccountsController {
 
         const { source, amount, transaction_pin: pin, destination } = req.body as CreateTransferDto;
 
-        // Ensure atomicity
         const senderAccount = await this.accountsRepository.find(source);
-        console.log(senderAccount, req_user_id)
         const recipientAccount = await this.accountsRepository.find(destination);
 
         // Check for various transfer conditions
@@ -110,6 +110,7 @@ class AccountsController {
              return res.status(400).json(ErrorFactory.getError("Invalid transaction pin"));
         }
 
+        // Ensure atomicity of the transfer
         try {
             // Perform the transfer
             await db.transaction(async (trx) => {
@@ -127,16 +128,21 @@ class AccountsController {
                     owner: recipientAccount.owner
                 } as UpdateAccountDto;
 
-                // Debit the sender then credit the receiver
-                this.accountsRepository.update(trx, senderUpdateDto);
-                this.accountsRepository.update(trx, recipientUpdateDto);
+                const senderUpdateResult = await this.accountsRepository.update(trx, senderUpdateDto);
+                const recipientUpdateResult = await this.accountsRepository.update(trx, recipientUpdateDto);
+
+                if (senderUpdateResult !== 1 || recipientUpdateResult !== 1) {
+                    throw new Error("Deposit failed");                
+                }
+
             })
+            
+            return res.json({ success: true, destination, source, amount });
+
         }
         catch(error) {
             return this.handleTransactionError(res, error);
         }
-
-        return res.json({ success: true, destination, source, amount });
     }
 
     /**
@@ -166,14 +172,21 @@ class AccountsController {
                     owner: sourceAccount.owner
                 } as UpdateAccountDto;
 
-                await this.accountsRepository.update(trx, updateDto);
+                const withdrawalResult = await this.accountsRepository.update(trx, updateDto);
+
+                // Returns the number of affected rows, the withdrawal should affect only one row
+                if(withdrawalResult !== 1){
+                    throw new Error("Withdrawal failed");
+                }
+
             });
+
+            return res.json({ success: true, destination, source, amount, destinationBankName });
         }
         catch(error) {
             return this.handleTransactionError(res, error);
         }
 
-        return res.json({ success: true, destination, source, amount, destinationBankName });
     }
 }
 

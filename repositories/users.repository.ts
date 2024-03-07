@@ -26,11 +26,25 @@ class UserRepository implements UserRepositoryInterface {
      * @param phoneNumber The phone number to check.
      * @returns A Promise resolving to the user ID if found, otherwise undefined.
      */
-    async getUserByEmailOrPhoneNumber(email?: string, phoneNumber?: string): Promise<Pick<User, "id"> | undefined>{
-        return await db("users").select("id").where(function() {
-            this.where("email", email).orWhere("phone_number", phoneNumber);
-        }).first();
+    getUserByEmailOrPhoneNumber = async (email?: string, phoneNumber?: string): Promise<Pick<User, "id"> | undefined> => {
+        let query = db("users").select("id");
+    
+        if (email && phoneNumber) {
+            query = query.where(function() {
+                this.where("email", email).orWhere("phone_number", phoneNumber);
+            });
+        } else if (email) {
+            query = query.where("email", email);
+        } else if (phoneNumber) {
+            query = query.where("phone_number", phoneNumber);
+        } else {
+            // Handle case when both email and phoneNumber are undefined
+            return undefined;
+        }
+    
+        return await query.first();
     }
+    
 
     /**
      * Creates a new user in the database.

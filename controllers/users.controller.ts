@@ -36,14 +36,13 @@ class UserController {
     }
 
 
-    create = async (req: Request, res: Response) => {
     /**
          * Register a new user and then creates an account for them.
          * This method makes use of the transactions feature of knex to ensure that
          * the user and account are created in a single transaction.
          * If either of the operations fail, the entire transaction is rolled back.
     */
-
+    create = async (req: Request, res: Response) => {
     // perform validation
     const { error, value } = validateUser(req.body);
 
