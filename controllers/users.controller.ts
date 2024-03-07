@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import db from "../db/knex";
 import { validateUser } from "../validators/create-user.validator";
 import { UserDto } from "../dto/user.dto";
-import { validateUserUpdate } from "../validators/update-user.validator";
 
 class UserController {
     /**
@@ -13,15 +12,21 @@ class UserController {
    * 
    */
 
-    async getUsers(req: Request, res: Response) : Promise<Response> {
-        /**
-         * For you to access This endpoint you must be an Admin
-         */
-        const users = await db("users").select('first_name', 'last_name', "email",
-         "phone_number", "last_login", 'is_active');
+    async getUser(req: Request, res: Response) : Promise<Response> {
+        /** 
+         * For this controller to be called, it would pass through an **auth middleware** which would populate it
+         * with the **userId** property.
+         * We have overriden the default implementation of the Request module and added a userId field
+         * check the **types** file in order to see the extended fields of the Request module
+        */
+        const { userId } = req;
 
-        return res.json(users);
+        const user = await db("users").select('first_name', 'last_name', "email",
+         "phone_number", "last_login", 'is_active').where({id: userId}).first();
+
+        return res.json(user);
     }
+
 
     async create(req: Request, res: Response): Promise<Response> {
     /**
@@ -51,43 +56,6 @@ class UserController {
 
     }
 
-    async updateUser(req: Request, res: Response): Promise<Response> {
-        /**
-         * For you to access This endpoint you must be an Admin
-         */
-
-        const {id} = req.params;
-
-        // perform validation
-        const { error, value } = validateUserUpdate(req.body);
-
-        // extract the password and return password from the body of the request
-        const {repeat_password, password, ...data} = value as Partial<UserDto>;
-
-        if (error) {
-            return res.status(400).json({ success: false, details: error.details[0].message });
-        }
-
-        if (!id) return res.status(400).json({success: false, details: "Supply a user id"});
-
-        await db("users").insert(data).where(id);
-        return res.json(data); 
-    }
-
-    async deleteUser(req: Request, res: Response): Promise<Response> {
-        /**
-         * For you to access This endpoint you must be an Admin
-         */
-        
-        const {id} = req.params;
-
-        if (!id) return res.status(400).json({success: false, details: "Supply a user id"});
-
-        await db("users").where(id).delete();
-
-        return res.status(204).json();
-
-    }
 }
 
 export default new UserController();

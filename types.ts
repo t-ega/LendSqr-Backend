@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import { Knex } from 'knex';
 
 /**
@@ -9,6 +10,13 @@ const UserRoles = Object.freeze({
     ADMIN: 'admin',
 });
 
+declare global {
+    namespace Express {
+      interface Request {
+        userId?: number;
+      }
+    }
+  }
 
 declare module 'knex/types/tables' {
     interface User {
@@ -30,4 +38,6 @@ declare module 'knex/types/tables' {
     users_composite: Knex.CompositeTableType<User>
     }
 }
+
+
 export { UserRoles }
