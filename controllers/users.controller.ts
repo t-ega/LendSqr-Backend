@@ -79,7 +79,7 @@ class UserController {
             };
         
             // create the account while maintaining transaction scope
-            const account = await this.accountsRepository.createAccount(trx, accountDto);
+            const account = await this.accountsRepository.create(trx, accountDto);
             const accountNumber = account?.account_number;
 
             return res.json({...value, accountNumber, id: user.id});

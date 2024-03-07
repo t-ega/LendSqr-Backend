@@ -3,13 +3,14 @@ import { AccountDto } from "../dto/account.dto";
 import { Account } from "knex/types/tables";
 import db from "../db/knex";
 import { UpdateAccountDto } from "../dto/update-account.dto";
+import AccountRepositoryInterface from "./accountRepositoryInterface";
 
-class AccountRepository {
+class AccountRepository implements AccountRepositoryInterface {
 
     /**
      * Generate an account number starting with `21` with ten digits
      */
-    private generateAccountNumber(): number {
+    generateAccountNumber(): number {
          let randomNumber = Math.floor(Math.random() * 90000000) + 10000000;
          // every account number is prefixed with a 21
          const accountNumber =  "21" + randomNumber.toString();
@@ -24,7 +25,7 @@ class AccountRepository {
      * @param accountDto 
      * @returns Account | undefined
      */
-    async createAccount(trx: Knex.Transaction, accountDto: AccountDto) : Promise<Account | undefined>{
+    async create(trx: Knex.Transaction, accountDto: AccountDto) : Promise<Account | undefined>{
         const account_number = this.generateAccountNumber();
         await trx("accounts").insert({...accountDto, account_number});
         
@@ -38,11 +39,11 @@ class AccountRepository {
      * @param accountNumber The account number to retrieve
      * @returns Promise resolving to the account object if found, otherwise null
      */
-    async getAccountByNumber(accountNumber: number): Promise<Account | undefined> {
+    async find(accountNumber: number): Promise<Account | undefined> {
         return await db("accounts").select().where({ account_number: accountNumber }).first();
     }
 
-    async updateAccount(trx: Knex.Transaction, accountDto: UpdateAccountDto){
+    async update(trx: Knex.Transaction, accountDto: UpdateAccountDto) : Promise<number[]>{
         const { owner, balance} = accountDto;
         return await trx("accounts").insert({ balance }).where({ owner})
     }

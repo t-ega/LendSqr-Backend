@@ -33,7 +33,7 @@ class AccountsController {
         const { account_number, amount } = req.body as DepositFundsDto;
 
         // Find the account to deposit into
-        const account = await this.accountsRepository.getAccountByNumber(account_number);
+        const account = await this.accountsRepository.find(account_number);
         if (!account) return res.status(404).json(ErrorFactory.getError("Destination account doesn't exist"));
 
         const updatedBalance = account.balance + amount;
@@ -46,7 +46,7 @@ class AccountsController {
         try {
             // Perform the deposit
             await db.transaction(async (trx) => {
-                await this.accountsRepository.updateAccount(trx, updateDto);
+                await this.accountsRepository.update(trx, updateDto);
             })
         }
         catch(error) {
@@ -67,8 +67,8 @@ class AccountsController {
         const { source, amount, transaction_pin: pin, destination } = req.body as CreateTransferDto;
 
         // Ensure atomicity
-        const senderAccount = await this.accountsRepository.getAccountByNumber(source);
-        const recipientAccount = await this.accountsRepository.getAccountByNumber(destination);
+        const senderAccount = await this.accountsRepository.find(source);
+        const recipientAccount = await this.accountsRepository.find(destination);
 
         // Check for various transfer conditions
         if (amount <= 0) {
@@ -115,8 +115,8 @@ class AccountsController {
                 } as UpdateAccountDto;
 
                 // Debit the sender then credit the receiver
-                this.accountsRepository.updateAccount(trx, senderUpdateDto);
-                this.accountsRepository.updateAccount(trx, recipientUpdateDto);
+                this.accountsRepository.update(trx, senderUpdateDto);
+                this.accountsRepository.update(trx, recipientUpdateDto);
             })
         }
         catch(error) {
@@ -136,7 +136,7 @@ class AccountsController {
         const { source, amount, transaction_pin: pin,  destination, destinationBankName } = req.body as WithdrawalDto;
      
         // Fetch the source account
-        const sourceAccount = await this.accountsRepository.getAccountByNumber(source);
+        const sourceAccount = await this.accountsRepository.find(source);
      
         // Check if source account exists and has sufficient balance and pin is valid
         if (!sourceAccount || sourceAccount.balance < amount || sourceAccount.pin !== pin) {
@@ -153,7 +153,7 @@ class AccountsController {
                     owner: sourceAccount.owner
                 } as UpdateAccountDto;
 
-                await this.accountsRepository.updateAccount(trx, updateDto);
+                await this.accountsRepository.update(trx, updateDto);
             });
         }
         catch(error) {
