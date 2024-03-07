@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import db from "../db/knex";
 import { validateUser } from "../validators/user.validator";
+import { UserDto } from "../dto/user.dto";
 
 class UserController {
     /**
@@ -12,7 +13,11 @@ class UserController {
    */
 
     async getUsers(req: Request, res: Response) : Promise<Response> {
-        const users = await db("users").select("*").returning(['first_name', 'last_name', "email", "phone_number"]);
+        /**
+         * For you to access This endpoint you must be an Admin
+         */
+        const users = await db("users").select('first_name', 'last_name', "email",
+         "phone_number", "last_login", 'is_active');
 
         return res.json(users);
     }
@@ -23,15 +28,22 @@ class UserController {
     */
 
     const { error } = validateUser(req.body);
-    const {repeat_password, ...data} = req.body;
+    const {repeat_password, ...data} = req.body as UserDto;
 
     if (error) {
         return res.status(400).json({ success: false, details: error.details[0].message });
     }
 
+    // check if the use exists
+    const exists = await db("users").select("id").where({email: data.email, phone_number: data.phone_number}).first();
+
+    if (exists) {
+        return res.status(400).json({success: false, details: "A user with that email or phone number already exists"});
+    }
+
     const user = await db("users").insert(data);
 
-    return res.json({user});
+    return res.json(data);
 
     }
 }
