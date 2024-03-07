@@ -32,10 +32,17 @@ declare module 'knex/types/tables' {
         created_at: Date;
         updated_at: Date;
     }
+
+    interface Account {
+      owner: number
+      account_number: number
+      balance: number
+      pin: number
+    }
   
   interface Tables {
     users: User
-    users_composite: Knex.CompositeTableType<User>
+    accounts: Account
     }
 }
 
