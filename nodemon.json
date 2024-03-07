@@ -3,4 +3,4 @@
     "ext": "ts,json,env",
     "ignore": ["src/**/*.spec.ts"],
     "exec": "ts-node-dev --transpile-only ./server.ts"
-  }
+}
