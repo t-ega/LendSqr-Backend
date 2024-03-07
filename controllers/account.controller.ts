@@ -2,86 +2,126 @@ import { Request, Response } from "express";
 import { DepositFundsDto } from "../dto/deposit.dto";
 import db from "../db/knex";
 import { CreateTransferDto } from "../dto/transfer.dto";
-
+import { WithdrawalDto } from "../dto/withdrawal.dto";
 
 class AccountsController {
 
+    /**
+     * Retrieves an account by its account number
+     * @param accountNumber The account number to retrieve
+     * @returns Promise resolving to the account object if found, otherwise null
+     */
+    private async getAccountByNumber(accountNumber: number) {
+        return await db("accounts").select().where({ account_number: accountNumber }).first();
+    }
 
+    /**
+     * Handles transaction errors and sends an appropriate response
+     * @param res The response object
+     * @param error The error object
+     * @returns JSON response containing error details
+     */
+    private async handleTransactionError(res: Response, error: any) {
+        return res.status(400).json({ success: false, details: error });
+    }
+
+    /**
+     * Deposits funds into a user's account
+     * @param req The request object
+     * @param res The response object
+     * @returns JSON response indicating success or failure of the deposit
+     */
     async deposit(req: Request, res: Response): Promise<Response> {
-       
         const userId = req.userId;
+        const { account_number, amount } = req.body as DepositFundsDto;
 
-        const {account_number, amount} = req.body as DepositFundsDto;
-
-        // find account to deposit into
-        const account = await db("accounts").select("balance", "owner").where({ owner : userId, account_number }).first();
-        if (!account) return res.status(404).json({success: false, details: "Destination account doesnt exist"});
+        // Find the account to deposit into
+        const account = await this.getAccountByNumber(account_number);
+        if (!account) return res.status(404).json({ success: false, details: "Destination account doesn't exist" });
 
         const updatedBalance = account.balance + amount;
 
-        // perform the deposit
-        await db.transaction(async function(trx) {
-            await trx("accounts").insert({balance: updatedBalance}).where({ owner: userId });
-        })
+        try {
+            // Perform the deposit
+            await db.transaction(async function(trx) {
+                await trx("accounts").insert({ balance: updatedBalance }).where({ owner: userId });
+            })
+        }
+        catch(error) {
+            return this.handleTransactionError(res, error);
+        }
 
-        return res.json({success: true , details: { account }});
-
+        return res.json({ success: true, details: { account } });
     }
 
+    /**
+     * Transfers funds from one account to another
+     * @param req The request object
+     * @param res The response object
+     * @returns JSON response indicating success or failure of the transfer
+     */
     async transfer(req: Request, res: Response): Promise<Response> {
         const req_user_id = req.userId;
-        
-        const {source, amount, pin, destination} = req.body as CreateTransferDto;
-        // enusuring atomicity
+        const { source, amount, pin, destination } = req.body as CreateTransferDto;
 
-        const senderAccount = await db("accounts").select().where({ account_number: source }).first();
-        const recipientAccount = await db("accounts").select().where({ account_number: destination }).first();
+        // Ensure atomicity
+        const senderAccount = await this.getAccountByNumber(source);
+        const recipientAccount = await this.getAccountByNumber(destination);
 
-        if (amount <= 0) {
-            return res.status(400).json({ success: false, details: "Invalid amount" });
-        }
-        
-        if (!senderAccount || !recipientAccount) {
-            return res.status(400).json({ success: false, details: "One or both bank accounts do not exist." });
-        }
-        
-        if (senderAccount.owner !== req_user_id) {
-            return res.status(400).json({ success: false, details: "You are not allowed to transfer from this account" });
-        }
-        
-        if (source === destination) {
-            return res.status(400).json({ success: false, details: "Sender and recipient account cannot be the same" });
-        }
-        
-        if (senderAccount.balance < amount) {
-            return res.status(400).json({ success: false, details: "Insufficient funds in the sender account." });
+        // Check for various transfer conditions
+        if (amount <= 0 || !senderAccount || !recipientAccount || senderAccount.owner !== req_user_id ||
+            source === destination || senderAccount.balance < amount || senderAccount.pin !== pin) {
+            return res.status(400).json({ success: false, details: "Invalid transfer request" });
         }
 
-        const isValid = (senderAccount.pin === pin);
-
-        if (!isValid) {
-             return res.status(400).json({ success: false, details: "Invalid transaction pin" });
-        }
-
-        // Perform the transfer
         try {
-
+            // Perform the transfer
             await db.transaction(async function(trx) {
                 const updatedBalance = senderAccount.balance - amount;
                 const recipientUpdatedBalance = recipientAccount.balance + amount;
-        
-                // debit the sender then credit the reciever
-                trx("accounts").insert({balance: updatedBalance}).where({ account_number: senderAccount.account_number}).then(async function(){
-                    await trx("accounts").insert({balance: recipientUpdatedBalance}).where({ account_number: recipientAccount.account_number})
-                })
-                
+
+                // Debit the sender then credit the receiver
+                trx("accounts").insert({ balance: updatedBalance }).where({ account_number: senderAccount.account_number }).then(async function() {
+                    await trx("accounts").insert({ balance: recipientUpdatedBalance }).where({ account_number: recipientAccount.account_number });
+                });
             })
         }
-        catch(err){
-            return res.status(400).json({success: false, details: err})
+        catch(error) {
+            return this.handleTransactionError(res, error);
         }
-        
-        return res.json({success: true, destination, source, amount});
+
+        return res.json({ success: true, destination, source, amount });
+    }
+
+    /**
+     * Withdraws funds from an account
+     * @param req The request object
+     * @param res The response object
+     * @returns JSON response indicating success or failure of the withdrawal
+     */
+    async withdrawFunds(req: Request, res: Response): Promise<Response> {
+        const { source, amount, pin,  destination, destinationBankName } = req.body as WithdrawalDto;
+     
+        // Fetch the source account
+        const sourceAccount = await this.getAccountByNumber(source);
+     
+        // Check if source account exists and has sufficient balance and pin is valid
+        if (!sourceAccount || sourceAccount.balance < amount || sourceAccount.pin !== pin) {
+            return res.status(400).json({ success: false, details: "Invalid withdrawal request" });
+        }
+
+        try {
+            // Perform the withdrawal
+            await db.transaction(function(trx) {
+                const updatedBalance = sourceAccount.balance - amount;
+                trx("accounts").insert({ balance: updatedBalance }).where({ account_number: sourceAccount.account_number });
+            });
+        }
+        catch(error) {
+            return this.handleTransactionError(res, error);
+        }
+
+        return res.json({ success: true, destination, source, amount, destinationBankName });
     }
 }
 
