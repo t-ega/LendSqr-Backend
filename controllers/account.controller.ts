@@ -1,44 +1,17 @@
 import { Request, Response } from "express";
-import { Knex } from "knex";
 
-import { DepositFundsDto } from "../dto/deposit.dto";
 import db from "../db/knex";
+import { DepositFundsDto } from "../dto/deposit.dto";
 import { CreateTransferDto } from "../dto/transfer.dto";
 import { WithdrawalDto } from "../dto/withdrawal.dto";
-import { AccountDto } from "../dto/account.dto";
-import { Account } from "knex/types/tables";
+import { UpdateAccountDto } from "../dto/update-account.dto";
+import ErrorFactory from "../errorFactory.factory";
+import AccountRepository from "../repositories/account.repository";
 
 class AccountsController {
 
-    private generateAccountNumber(): number {
-        /**
-         * In the internal systems every account number 
-         * must start with `21`
-         */
-         let randomNumber = Math.floor(Math.random() * 90000000) + 10000000;
-         // every account number is prefixed with a 21
-         const accountNumber =  "21" + randomNumber.toString();
-         return parseInt(accountNumber)
-    }
-
-    async createAccount(trx: Knex.Transaction, accountDto: AccountDto) : Promise<Account | undefined>{
-        const account_number = this.generateAccountNumber();
-        await trx("accounts").insert({...accountDto, account_number});
-        
-        // MySQL doesn't support returning of columns so we have to query again
-        const account = await trx("accounts").select("*").where({account_number}).first();
-        return account;
-    }
-
-    /**
-     * Retrieves an account by its account number
-     * @param accountNumber The account number to retrieve
-     * @returns Promise resolving to the account object if found, otherwise null
-     */
-    private async getAccountByNumber(accountNumber: number) {
-        return await db("accounts").select().where({ account_number: accountNumber }).first();
-    }
-
+    constructor(private accountsRepository : AccountRepository) {}
+   
     /**
      * Handles transaction errors and sends an appropriate response
      * @param res The response object
@@ -46,7 +19,7 @@ class AccountsController {
      * @returns JSON response containing error details
      */
     private async handleTransactionError(res: Response, error: any) {
-        return res.status(400).json({ success: false, details: error });
+        return res.status(400).json(ErrorFactory.getError(error));
     }
 
     /**
@@ -60,15 +33,20 @@ class AccountsController {
         const { account_number, amount } = req.body as DepositFundsDto;
 
         // Find the account to deposit into
-        const account = await this.getAccountByNumber(account_number);
-        if (!account) return res.status(404).json({ success: false, details: "Destination account doesn't exist" });
+        const account = await this.accountsRepository.getAccountByNumber(account_number);
+        if (!account) return res.status(404).json(ErrorFactory.getError("Destination account doesn't exist"));
 
         const updatedBalance = account.balance + amount;
 
+        const updateDto = {
+            balance: updatedBalance,
+            owner: userId
+        } as UpdateAccountDto;
+
         try {
             // Perform the deposit
-            await db.transaction(async function(trx) {
-                await trx("accounts").insert({ balance: updatedBalance }).where({ owner: userId });
+            await db.transaction(async (trx) => {
+                await this.accountsRepository.updateAccount(trx, updateDto);
             })
         }
         catch(error) {
@@ -89,25 +67,56 @@ class AccountsController {
         const { source, amount, transaction_pin: pin, destination } = req.body as CreateTransferDto;
 
         // Ensure atomicity
-        const senderAccount = await this.getAccountByNumber(source);
-        const recipientAccount = await this.getAccountByNumber(destination);
+        const senderAccount = await this.accountsRepository.getAccountByNumber(source);
+        const recipientAccount = await this.accountsRepository.getAccountByNumber(destination);
 
         // Check for various transfer conditions
-        if (amount <= 0 || !senderAccount || !recipientAccount || senderAccount.owner !== req_user_id ||
-            source === destination || senderAccount.balance < amount || senderAccount.pin !== pin) {
-            return res.status(400).json({ success: false, details: "Invalid transfer request" });
+        if (amount <= 0) {
+            return res.status(400).json(ErrorFactory.getError("Invalid amount"));
+        }
+        
+        if (!senderAccount || !recipientAccount) {
+            return res.status(400).json(ErrorFactory.getError("One or both bank accounts do not exist."));
+        }
+        
+        if (senderAccount.owner !== req_user_id) {
+            return res.status(400).json(ErrorFactory.getError("You are not allowed to transfer from this account" ));
+        }
+        
+        if (source === destination) {
+            return res.status(400).json(ErrorFactory.getError("Sender and recipient account cannot be the same"));
+        }
+        
+        if (senderAccount.balance < amount) {
+            return res.status(400).json(ErrorFactory.getError("Insufficient funds in the sender account." ));
+        }
+
+        const isValid = (senderAccount.pin === pin);
+
+        if (!isValid) {
+             return res.status(400).json(ErrorFactory.getError("Invalid transaction pin"));
         }
 
         try {
             // Perform the transfer
-            await db.transaction(async function(trx) {
-                const updatedBalance = senderAccount.balance - amount;
+            await db.transaction(async (trx) => {
+
+                const senderUpdatedBalance = senderAccount.balance - amount;
                 const recipientUpdatedBalance = recipientAccount.balance + amount;
 
+                const senderUpdateDto = {
+                    balance: senderUpdatedBalance,
+                    owner: senderAccount.owner
+                } as UpdateAccountDto;
+
+                const recipientUpdateDto = {
+                    balance: recipientUpdatedBalance,
+                    owner: recipientAccount.owner
+                } as UpdateAccountDto;
+
                 // Debit the sender then credit the receiver
-                trx("accounts").insert({ balance: updatedBalance }).where({ account_number: senderAccount.account_number }).then(async function() {
-                    await trx("accounts").insert({ balance: recipientUpdatedBalance }).where({ account_number: recipientAccount.account_number });
-                });
+                this.accountsRepository.updateAccount(trx, senderUpdateDto);
+                this.accountsRepository.updateAccount(trx, recipientUpdateDto);
             })
         }
         catch(error) {
@@ -127,18 +136,24 @@ class AccountsController {
         const { source, amount, transaction_pin: pin,  destination, destinationBankName } = req.body as WithdrawalDto;
      
         // Fetch the source account
-        const sourceAccount = await this.getAccountByNumber(source);
+        const sourceAccount = await this.accountsRepository.getAccountByNumber(source);
      
         // Check if source account exists and has sufficient balance and pin is valid
         if (!sourceAccount || sourceAccount.balance < amount || sourceAccount.pin !== pin) {
-            return res.status(400).json({ success: false, details: "Invalid withdrawal request" });
+            return res.status(400).json(ErrorFactory.getError("Invalid withdrawal request"));
         }
 
         try {
             // Perform the withdrawal
-            await db.transaction(function(trx) {
+            await db.transaction(async (trx) => {
                 const updatedBalance = sourceAccount.balance - amount;
-                trx("accounts").insert({ balance: updatedBalance }).where({ account_number: sourceAccount.account_number });
+               
+                const updateDto = {
+                    balance: updatedBalance,
+                    owner: sourceAccount.owner
+                } as UpdateAccountDto;
+
+                await this.accountsRepository.updateAccount(trx, updateDto);
             });
         }
         catch(error) {
@@ -149,4 +164,4 @@ class AccountsController {
     }
 }
 
-export default new AccountsController();
+export default AccountsController;

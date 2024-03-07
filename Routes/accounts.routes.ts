@@ -6,12 +6,15 @@ import express from 'express';
 
 import IsAuthenticated from '../middlewares/auth.middleware';
 import AccountController from '../controllers/account.controller';
+import AccountRepository from '../repositories/account.repository';
 
 const Router = express.Router();
 
+const accountsRepository = new AccountRepository();
+const accountsController = new AccountController(accountsRepository)
 
-Router.post("/deposit", IsAuthenticated, AccountController.deposit);
-Router.post("/transfer", IsAuthenticated, AccountController.transfer);
-Router.post("/withdraw", IsAuthenticated, AccountController.withdraw);
+Router.post("/deposit", IsAuthenticated, accountsController.deposit);
+Router.post("/transfer", IsAuthenticated, accountsController.transfer);
+Router.post("/withdraw", IsAuthenticated, accountsController.withdraw);
 
 export default Router;

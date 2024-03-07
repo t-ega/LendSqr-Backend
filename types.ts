@@ -24,8 +24,6 @@ declare module 'knex/types/tables' {
         last_name: string;
         email: string;
         phone_number: string;
-        role: typeof UserRoles;
-        last_login: Date;
         created_at: Date;
         updated_at: Date;
     }

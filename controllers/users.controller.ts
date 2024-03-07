@@ -1,15 +1,22 @@
 import { Request, Response } from "express";
+
 import db from "../db/knex";
 import { validateUser } from "../validators/create-user.validator";
-import accountController from "./account.controller";
+import ErrorFactory from "../errorFactory.factory";
+import UserRepository from "../repositories/users.repository";
+import AccountRepository from "../repositories/account.repository";
 
 class UserController {
+
+    constructor(
+        private userRepository: UserRepository,
+        private accountsRepository: AccountRepository
+    ) {}
+
     /**
-   * This class ensures that Users should be able to register,
-   *  log in, and access protected resources based on their roles.
-   * It achieves role based authentication by using middlewares.
-   * Note: This controller doesnt support operations like update/delete on the users model.
-   * 
+   * This controller is responsible for handling user related operations.
+   * It is responsible for creating a new user and also fetching a user's details.
+   * **Note**: Features such as funding, withdrawal, and transfer are handled by the account controller.
    */
 
     async getUser(req: Request, res: Response) : Promise<Response> {
@@ -19,18 +26,22 @@ class UserController {
          * We have overriden the default implementation of the Request module and added a userId field
          * check the **types** file in order to see the extended fields of the Request module
         */
-        const { userId } = req;
+        const userId  = req.userId as number;
 
-        const user = await db("users").select('first_name', 'last_name', "email",
-         "phone_number", "last_login").where({id: userId}).first();
+        const user = await this.userRepository.getUserById(userId);
 
-        return res.json(user);
+        const account = await db("accounts").select("account_number", "balance").where({owner: userId}).first();
+
+        return res.json({user, account});
     }
 
 
     async create(req: Request, res: Response) {
     /**
          * Register a new user and then creates an account for them.
+         * This method makes use of the transactions feature of knex to ensure that
+         * the user and account are created in a single transaction.
+         * If either of the operations fail, the entire transaction is rolled back.
     */
 
     // perform validation
@@ -38,30 +49,26 @@ class UserController {
 
 
     if (error) {
-        return res.status(400).json({ success: false, details: error.details[0].message });
+        return res.status(400).json(ErrorFactory.getError(error.details[0].message));
     }
 
     // check if the user exists
-    const exists = await db("users")
-    .select("id")
-    .where(function() {
-        this.where('email', value.email)
-        .orWhere('phone_number', value.phone_number);
-    })
-    .first();
+    const exists = await this.userRepository.getUserByEmailOrPhoneNumber(value.email, value.phone_number);
 
     if (exists) {
-        return res.status(400).json({success: false, details: "A user with that email or phone number already exists"});
+        return res.status(400).json(ErrorFactory.getError("A user with that email or phone number already exists"));
     }
 
-    db.transaction(async function(trx){
+    // perform the transaction
+    db.transaction(async (trx) => {
+        // destructure the pin from the user object
         const { pin, ...userDto } = value;
 
-        // create the user
-        await trx("users").insert({...userDto});
+        // create the user and the user's account in a db transaction
+        await this.userRepository.createUser(trx, userDto);
     
         // MySQL doesn't support returning of columns so we have to query again
-        const user = await trx("users").select().where({email: value.email}).first();
+        const user = await this.userRepository.getUserByEmailOrPhoneNumber(value.email);
     
         if (user) {
     
@@ -72,10 +79,10 @@ class UserController {
             };
         
             // create the account while maintaining transaction scope
-            const account = await accountController.createAccount(trx, accountDto);
-            const accountNumber = account?.account_number
+            const account = await this.accountsRepository.createAccount(trx, accountDto);
+            const accountNumber = account?.account_number;
 
-            return res.json({...value, accountNumber});
+            return res.json({...value, accountNumber, id: user.id});
         }
     })
 
@@ -83,4 +90,4 @@ class UserController {
 
 }
 
-export default new UserController();
+export default UserController;
