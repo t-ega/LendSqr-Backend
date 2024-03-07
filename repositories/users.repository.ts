@@ -28,13 +28,15 @@ class UserRepository implements UserRepositoryInterface {
      */
     getUserByEmailOrPhoneNumber = async (email?: string, phoneNumber?: string): Promise<Pick<User, "id"> | undefined> => {
         let query = db("users").select("id");
-    
+
         if (email && phoneNumber) {
             query = query.where(function() {
                 this.where("email", email).orWhere("phone_number", phoneNumber);
             });
         } else if (email) {
-            query = query.where("email", email);
+            const r = await query.where("email", email);
+            console.log(r);
+            console.log("d");
         } else if (phoneNumber) {
             query = query.where("phone_number", phoneNumber);
         } else {

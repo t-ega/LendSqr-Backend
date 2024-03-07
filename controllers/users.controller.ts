@@ -59,32 +59,32 @@ class UserController {
     }
 
     // perform the transaction
-    db.transaction(async (trx) => {
+    const result = await db.transaction(async (trx) => {
+
         // destructure the pin from the user object
         const { pin, ...userDto } = value;
-
-        // create the user and the user's account in a db transaction
-        await this.userRepository.createUser(trx, userDto);
-    
-        // MySQL doesn't support returning of columns so we have to query again
-        const user = await this.userRepository.getUserByEmailOrPhoneNumber(value.email);
-    
-        if (user) {
-    
-            // create an account for that user
-            const accountDto = {
-                owner: user.id,
-                transaction_pin: pin
-            };
         
-            // create the account while maintaining transaction scope
-            const account = await this.accountsRepository.create(trx, accountDto);
-            const accountNumber = account?.account_number;
-
-            return res.json({...value, accountNumber, id: user.id});
+        // create the user and the user's account in a db transaction
+        const user = await this.userRepository.createUser(trx, userDto);
+        
+        if (!user) {
+            throw new Error("An error occurred while creating the user");
         }
+
+        const accountDto = {
+            owner: user.id,
+            transaction_pin: pin
+        };
+        
+        // create an account for that user
+        // create the account while maintaining transaction scope
+        const account = await this.accountsRepository.create(trx, accountDto);
+        const accountNumber = account?.account_number;
+        return { id: user.id, ...userDto, accountNumber };
+        
     })
 
+    return res.json(result);
     }
 
 }
