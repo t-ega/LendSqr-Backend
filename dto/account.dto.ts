@@ -1,4 +1,4 @@
 export interface AccountDto {
     owner: number
-    pin: number
+    transaction_pin: number
 }

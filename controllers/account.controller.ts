@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { Knex } from "knex";
+
 import { DepositFundsDto } from "../dto/deposit.dto";
 import db from "../db/knex";
 import { CreateTransferDto } from "../dto/transfer.dto";
@@ -19,12 +21,12 @@ class AccountsController {
          return parseInt(accountNumber)
     }
 
-    async createAccount(accountDto: AccountDto) : Promise<Account | undefined>{
+    async createAccount(trx: Knex.Transaction, accountDto: AccountDto) : Promise<Account | undefined>{
         const account_number = this.generateAccountNumber();
-        await db("accounts").insert({...accountDto, account_number});
-
+        await trx("accounts").insert({...accountDto, account_number});
+        
         // MySQL doesn't support returning of columns so we have to query again
-        const account = await db("accounts").select().where(account_number).first();
+        const account = await trx("accounts").select("*").where({account_number}).first();
         return account;
     }
 
@@ -84,7 +86,7 @@ class AccountsController {
      */
     async transfer(req: Request, res: Response): Promise<Response> {
         const req_user_id = req.userId;
-        const { source, amount, pin, destination } = req.body as CreateTransferDto;
+        const { source, amount, transaction_pin: pin, destination } = req.body as CreateTransferDto;
 
         // Ensure atomicity
         const senderAccount = await this.getAccountByNumber(source);
@@ -122,7 +124,7 @@ class AccountsController {
      * @returns JSON response indicating success or failure of the withdrawal
      */
     async withdraw(req: Request, res: Response): Promise<Response> {
-        const { source, amount, pin,  destination, destinationBankName } = req.body as WithdrawalDto;
+        const { source, amount, transaction_pin: pin,  destination, destinationBankName } = req.body as WithdrawalDto;
      
         // Fetch the source account
         const sourceAccount = await this.getAccountByNumber(source);

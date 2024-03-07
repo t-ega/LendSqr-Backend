@@ -28,7 +28,7 @@ class UserController {
     }
 
 
-    async create(req: Request, res: Response): Promise<Response> {
+    async create(req: Request, res: Response) {
     /**
          * Register a new user and then creates an account for them.
     */
@@ -42,30 +42,42 @@ class UserController {
     }
 
     // check if the user exists
-    const exists = await db("users").select("id").where({email: value.email, phone_number: value.phone_number}).first();
+    const exists = await db("users")
+    .select("id")
+    .where(function() {
+        this.where('email', value.email)
+        .orWhere('phone_number', value.phone_number);
+    })
+    .first();
 
     if (exists) {
         return res.status(400).json({success: false, details: "A user with that email or phone number already exists"});
     }
 
-    await db("users").insert({...value}).first();
+    db.transaction(async function(trx){
+        const { pin, ...userDto } = value;
 
-    // MySQL doesn't support returning of columns so we have to query again
-    const user = await db("users").select().where({email: value.email}).first();
-
-    if (user) {
-
-        // create an account for that user
-        const accountDto = {
-            owner: user.id,
-            pin: value.pin
-        };
+        // create the user
+        await trx("users").insert({...userDto});
     
-        const account = await accountController.createAccount(accountDto);
-        return res.json(...value, account?.account_number);
-    }
+        // MySQL doesn't support returning of columns so we have to query again
+        const user = await trx("users").select().where({email: value.email}).first();
+    
+        if (user) {
+    
+            // create an account for that user
+            const accountDto = {
+                owner: user.id,
+                transaction_pin: pin
+            };
+        
+            // create the account while maintaining transaction scope
+            const account = await accountController.createAccount(trx, accountDto);
+            const accountNumber = account?.account_number
 
-    return res.json(...value);
+            return res.json({...value, accountNumber});
+        }
+    })
 
     }
 

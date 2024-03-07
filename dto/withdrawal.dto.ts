@@ -3,7 +3,7 @@ export interface WithdrawalDto {
     source: number,  
     amount:  number,
     destination: number,
-    pin: number,
+    transaction_pin: number,
     destinationBankName: string
 
 }
