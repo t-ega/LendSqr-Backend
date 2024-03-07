@@ -23,12 +23,13 @@ class UserController {
     */
 
     const { error } = validateUser(req.body);
+    const {repeat_password, ...data} = req.body;
 
     if (error) {
         return res.status(400).json({ success: false, details: error.details[0].message });
     }
 
-    const user = await db("users").insert(req.body).returning(['first_name', 'last_name', "email", "phone_number"]);
+    const user = await db("users").insert(data);
 
     return res.json({user});
 
