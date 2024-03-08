@@ -3,8 +3,6 @@ import UserRepository from "../../repositories/users.repository";
 
 import db from '../../db/knex';
 import AccountRepository from "../../repositories/account.repository";
-import { validateUser } from "../../validators/create-user.validator";
-import { object } from "joi";
 
 jest.mock('../../db/knex', () => require('../__mocks__/knex.mock'));
 

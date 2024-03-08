@@ -49,7 +49,6 @@ class UserController {
 
 
     if (error) {
-        console.log(error)
         return res.status(400).json(ErrorFactory.getError(error.details[0].message));
     }
 

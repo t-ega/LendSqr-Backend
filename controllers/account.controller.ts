@@ -99,7 +99,7 @@ class AccountsController {
         }
         
         if (!senderAccount || !recipientAccount) {
-            return res.status(400).json(ErrorFactory.getError("One or both bank accounts do not exist."));
+            return res.status(404).json(ErrorFactory.getError("One or both bank accounts do not exist."));
         }
         
         if (senderAccount.owner != req_user_id) {
@@ -173,7 +173,7 @@ class AccountsController {
      
         // Check if source account exists and has sufficient balance and pin is valid
         if (!sourceAccount) {
-            return res.status(400).json(ErrorFactory.getError("Source Bank account do not exist."));
+            return res.status(404).json(ErrorFactory.getError("Source Bank account do not exist."));
         }
 
         if (sourceAccount.balance < amount) {

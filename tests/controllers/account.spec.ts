@@ -5,6 +5,7 @@ import AccountRepository from "../../repositories/account.repository";
 
 import db from '../../db/knex';
 import { CreateTransferDto } from '../../dto/transfer.dto';
+import { WithdrawalDto } from '../../dto/withdrawal.dto';
 
 // Mocking the knex dependency
 jest.mock('../../db/knex', () => require('../__mocks__/knex.mock'));
@@ -202,6 +203,61 @@ describe('AccountsController', () => {
                 success: expect.any(Boolean)
             }));            
         });
+    });
+
+    describe('withdraw', () => {
+        const res = {
+            status: jest.fn().mockReturnThis(),
+            json: jest.fn()
+        }
+        const body : WithdrawalDto = {
+            amount: 100,
+            transaction_pin: "1234",
+            source: 1,
+            destination: 3, // external bank account
+            destinationBankName: "GTB"
+        } 
+
+        const req = {
+            userId: 1,
+            body
+        }
+
+        it("should withdraw funds successfully", async () => {
+            const mockOwner = {
+                balance: 100,
+                account_number: 1,
+                owner: 1,
+                transaction_pin: "1234"
+            }
+    
+            const find = jest.spyOn(accountsRepository, 'find').mockResolvedValueOnce(mockOwner);
+            
+            jest.spyOn(bcyrpt, "compare").mockImplementationOnce(() => Promise.resolve(true));
+            jest.spyOn(db, 'transaction').mockResolvedValue(null);
+    
+            await accountsController.withdraw(req as any, res as any);
+    
+            expect(find).toHaveBeenCalledWith(1);
+            expect(db.transaction).toHaveBeenCalled();
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining(
+                { success: true, destination: 3, destinationBankName:"GTB", source: 1, amount: 100 }
+            ));
+        });
+
+        it("should return an error if the account doesn't exist", async () => {
+
+            const find = jest.spyOn(accountsRepository, 'find').mockResolvedValueOnce(undefined);
+    
+            await accountsController.withdraw(req as any, res as any);
+    
+            expect(find).toHaveBeenCalledWith(1);
+            expect(res.status).toHaveBeenCalledWith(404);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                details: expect.any(String),
+                success: expect.any(Boolean)
+            })); 
+        })
     });
 
 })
