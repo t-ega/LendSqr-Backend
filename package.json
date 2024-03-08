@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "start": "tsc && node ./lib/server.js",
+    "start": "tsc && node ./dist/server.js",
     "dev": "nodemon",
     "migrate": "knex migrate:latest"
   },
