@@ -1,19 +1,24 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
+import NodeCache from "node-cache";
 
 import db from "../db/knex";
 import { DepositFundsDto } from "../dto/deposit.dto";
 import { CreateTransferDto } from "../dto/transfer.dto";
 import { WithdrawalDto } from "../dto/withdrawal.dto";
 import { UpdateAccountDto } from "../dto/update-account.dto";
-import ErrorFactory from "../errorFactory.factory";
+import ErrorFactory from "../utils/errorFactory.factory";
 import AccountRepository from "../repositories/account.repository";
 import { validateTransfer } from "../validators/transfer.validator";
 import { validateWithdrawal } from "../validators/withdraw.validator";
+import customCache from "../utils/cutom-cache";
 
 class AccountsController {
 
-    constructor(private accountsRepository : AccountRepository) {}
+    constructor(
+        private accountsRepository : AccountRepository,
+        private customCache : NodeCache
+    ) {}
    
     /**
      * Handles transaction errors and sends an appropriate response
@@ -26,6 +31,25 @@ class AccountsController {
     }
 
     /**
+     * Caches the response if the idempotency key exists and a cached response is not found.
+     * If a cached response exists for the idempotency key, it sends the cached response as the HTTP response.
+     * Otherwise, it sets the response in the cache with the specified TTL (Time To Live) in seconds.
+     * @param res Express Response object.
+     * @param idempotencyKey Idempotency key extracted from the request headers.
+     * @param response Response object to cache.
+    */
+    private cacheResponseIfKeyExists(res: Response, idempotencyKey: string, response: any): void {
+        if (idempotencyKey) {
+            const cachedResponse = this.customCache.get(idempotencyKey);
+            if (cachedResponse) {
+                res.json(cachedResponse);
+                return;
+            }
+            this.customCache.set(idempotencyKey, response, 21600);
+        }
+    }
+
+    /**
      * Deposits funds into a user's account
      * @param req The request object
      * @param res The response object
@@ -34,6 +58,7 @@ class AccountsController {
     deposit = async (req: Request, res: Response): Promise<Response> => {
         const userId = req.userId as number;
         const { amount } = req.body as DepositFundsDto;
+        const idempotencyKey = req.headers['idempotency-key'] as string;
 
         if (amount <= 0) return res.status(400).json(ErrorFactory.getError("Invalid amount"));
 
@@ -64,7 +89,11 @@ class AccountsController {
             return this.handleTransactionError(res, error);
         }
 
-        return res.json({ success: true, details: { ...updateDto } });
+        const response = { success: true, details: { ...updateDto } }
+
+        // cache the data in the cache store if an idempotency key is present
+        this.cacheResponseIfKeyExists(res, idempotencyKey, response);
+        return res.json(response);
     }
 
     /**
@@ -76,6 +105,8 @@ class AccountsController {
     transfer = async (req: Request, res: Response): Promise<Response> => {
         const req_user_id = req.userId;
 
+        const idempotencyKey = req.headers['idempotency-key'] as string;
+        
         const { error, value }  = validateTransfer(req.body);
 
         if (error) {
@@ -142,8 +173,12 @@ class AccountsController {
                 }
 
             })
-            
-            return res.json({ success: true, destination, source, amount });
+
+            const response = { success: true, destination, source, amount }
+
+            // cache the data in the cache store if an idempotency key is present
+            this.cacheResponseIfKeyExists(res, idempotencyKey, response);
+            return res.json(response);
 
         }
         catch(error) {
@@ -158,6 +193,8 @@ class AccountsController {
      * @returns JSON response indicating success or failure of the withdrawal
      */
     withdraw = async (req: Request, res: Response): Promise<Response> => {
+
+        const idempotencyKey = req.headers['idempotency-key'] as string;
 
         // validate data
         const { error, value } = validateWithdrawal(req.body);
@@ -204,8 +241,13 @@ class AccountsController {
                 }
 
             });
+            
+            const response = { success: true, destination, source, amount, destinationBankName }
 
-            return res.json({ success: true, destination, source, amount, destinationBankName });
+            // cache the data in the cache store if an idempotency key is present
+            this.cacheResponseIfKeyExists(res, idempotencyKey, response);
+
+            return res.json();
         }
         catch(error) {
             return this.handleTransactionError(res, error);
