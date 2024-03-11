@@ -12,9 +12,10 @@ import customCache from "../utils/cutom-cache";
  */
 const idempotencyMiddleWare = (req: Request, res: Response, next: NextFunction): void => {
     const idempotencyKey = req.headers['idempotency-key'] as string;
+    const userId = req.userId;
 
     if (idempotencyKey) {
-        const cachedResponse = customCache.get(idempotencyKey);
+        const cachedResponse = customCache.get(`Bearer ${userId}-${idempotencyKey}`);
         if (cachedResponse) {
             res.json(cachedResponse);
             return;

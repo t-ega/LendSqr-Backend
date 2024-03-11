@@ -11,7 +11,6 @@ import ErrorFactory from "../utils/errorFactory.factory";
 import AccountRepository from "../repositories/account.repository";
 import { validateTransfer } from "../validators/transfer.validator";
 import { validateWithdrawal } from "../validators/withdraw.validator";
-import customCache from "../utils/cutom-cache";
 
 class AccountsController {
 
@@ -34,18 +33,17 @@ class AccountsController {
      * Caches the response if the idempotency key exists and a cached response is not found.
      * If a cached response exists for the idempotency key, it sends the cached response as the HTTP response.
      * Otherwise, it sets the response in the cache with the specified TTL (Time To Live) in seconds.
-     * @param res Express Response object.
-     * @param idempotencyKey Idempotency key extracted from the request headers.
+     * @param req Express Response object.
+     * @param cacheKey Idempotency key extracted from the request headers.
      * @param response Response object to cache.
     */
-    private cacheResponseIfKeyExists(res: Response, idempotencyKey: string, response: any): void {
+    private cacheResponseIfKeyExists(req: Request, idempotencyKey: string, response: any): void {
+        const userId = req.userId;
+        
         if (idempotencyKey) {
-            const cachedResponse = this.customCache.get(idempotencyKey);
-            if (cachedResponse) {
-                res.json(cachedResponse);
-                return;
-            }
-            this.customCache.set(idempotencyKey, response, 21600);
+            // there should be a uniform way to handle caching to differentiate different idempotency keys
+            const cacheKey = `Bearer ${userId}-${idempotencyKey}`
+            this.customCache.set(cacheKey, response, 21600);
         }
     }
 
@@ -92,7 +90,7 @@ class AccountsController {
         const response = { success: true, details: { ...updateDto } }
 
         // cache the data in the cache store if an idempotency key is present
-        this.cacheResponseIfKeyExists(res, idempotencyKey, response);
+        this.cacheResponseIfKeyExists(req, idempotencyKey, response);
         return res.json(response);
     }
 
@@ -177,7 +175,7 @@ class AccountsController {
             const response = { success: true, destination, source, amount }
 
             // cache the data in the cache store if an idempotency key is present
-            this.cacheResponseIfKeyExists(res, idempotencyKey, response);
+            this.cacheResponseIfKeyExists(req, idempotencyKey, response);
             return res.json(response);
 
         }
@@ -245,7 +243,7 @@ class AccountsController {
             const response = { success: true, destination, source, amount, destinationBankName }
 
             // cache the data in the cache store if an idempotency key is present
-            this.cacheResponseIfKeyExists(res, idempotencyKey, response);
+            this.cacheResponseIfKeyExists(req, idempotencyKey, response);
 
             return res.json();
         }
