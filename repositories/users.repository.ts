@@ -2,7 +2,7 @@ import { Knex } from "knex";
 import db from "../db/knex";
 import { UserDto } from "../dto/user.dto";
 import { User } from "knex/types/tables";
-import UserRepositoryInterface from "./userRepositoryInterface";
+import UserRepositoryInterface from "./user-repository-interface";
 
 /**
  * UserRepository class encapsulates database operations related to users.

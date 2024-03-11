@@ -3,7 +3,7 @@ import bcyrpt from "bcrypt";
 
 import db from "../db/knex";
 import { validateUser } from "../validators/create-user.validator";
-import ErrorFactory from "../utils/errorFactory.factory";
+import ErrorFactory from "../utils/error-factory.factory";
 import UserRepository from "../repositories/users.repository";
 import AccountRepository from "../repositories/account.repository";
 

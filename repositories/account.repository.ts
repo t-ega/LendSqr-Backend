@@ -3,7 +3,7 @@ import { AccountDto } from "../dto/account.dto";
 import { Account } from "knex/types/tables";
 import db from "../db/knex";
 import { UpdateAccountDto } from "../dto/update-account.dto";
-import AccountRepositoryInterface from "./accountRepositoryInterface";
+import AccountRepositoryInterface from "./account-repository-interface";
 
 class AccountRepository implements AccountRepositoryInterface {
 

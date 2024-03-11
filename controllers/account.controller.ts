@@ -7,7 +7,7 @@ import { DepositFundsDto } from "../dto/deposit.dto";
 import { CreateTransferDto } from "../dto/transfer.dto";
 import { WithdrawalDto } from "../dto/withdrawal.dto";
 import { UpdateAccountDto } from "../dto/update-account.dto";
-import ErrorFactory from "../utils/errorFactory.factory";
+import ErrorFactory from "../utils/error-factory.factory";
 import AccountRepository from "../repositories/account.repository";
 import { validateTransfer } from "../validators/transfer.validator";
 import { validateWithdrawal } from "../validators/withdraw.validator";
