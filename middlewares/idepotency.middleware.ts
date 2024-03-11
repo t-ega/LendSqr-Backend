@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import customCache from "../utils/cutom-cache";
+import customCache from "../utils/custom-cache";
 
 /**
  * Middleware function for handling idempotency key checks and caching.

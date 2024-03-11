@@ -245,7 +245,7 @@ class AccountsController {
             // cache the data in the cache store if an idempotency key is present
             this.cacheResponseIfKeyExists(req, idempotencyKey, response);
 
-            return res.json();
+            return res.json(response);
         }
         catch(error) {
             return this.handleTransactionError(res, error);

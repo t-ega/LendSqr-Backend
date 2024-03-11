@@ -1,4 +1,4 @@
-// __mocks__/knex.js
+// __mocks__/knex.mock.ts
 
 const mockKnex = {
     transaction: jest.fn((x) => x),

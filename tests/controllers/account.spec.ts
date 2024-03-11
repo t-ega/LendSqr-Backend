@@ -1,25 +1,31 @@
-import bcyrpt from 'bcrypt';
+import bcrypt from 'bcrypt';
 import AccountsController from "../../controllers/account.controller";
 import AccountRepository from "../../repositories/account.repository";
 
 
 import db from '../../db/knex';
+
 import { CreateTransferDto } from '../../dto/transfer.dto';
 import { WithdrawalDto } from '../../dto/withdrawal.dto';
+import NodeCache from 'node-cache';
+import customCache from '../../utils/custom-cache';
 
 // Mocking the knex dependency
 jest.mock('../../db/knex', () => require('../__mocks__/knex.mock'));
 
+
 describe('AccountsController', () => {
     let accountsController: AccountsController;
-    let accountsRepository: AccountRepository;
+    let accountsRepository: AccountRepository; 
+    let mockCache: NodeCache
     
     beforeEach(() => {
         accountsRepository = new AccountRepository();
-        accountsController = new AccountsController(accountsRepository);
+        mockCache = customCache
+        accountsController = new AccountsController(accountsRepository, mockCache);
     });
 
-    it("acccounts repository should be defined", () => {
+    it("accounts repository should be defined", () => {
         expect(accountsRepository).toBeDefined()
     });
 
@@ -44,12 +50,13 @@ describe('AccountsController', () => {
             userId: 1,
             body: {
                 amount: 100
-            }
+            },
+            headers: {} 
         }
+
         it("should deposit funds successfully", async () => {
-    
             const findByOwnerId = jest.spyOn(accountsRepository, 'findByOwnerId').mockResolvedValueOnce(mockOwner);
-    
+          
             jest.spyOn(db, 'transaction').mockResolvedValue(null);
     
             await accountsController.deposit(req as any, res as any);
@@ -93,7 +100,8 @@ describe('AccountsController', () => {
                 userId: 1,
                 body: {
                     amount: -100
-                }
+                },
+                headers: {} 
             }
             await accountsController.deposit(req as any, res as any);
     
@@ -110,20 +118,21 @@ describe('AccountsController', () => {
             status: jest.fn().mockReturnThis(),
             json: jest.fn()
         }
-        const body = {
+        const body: CreateTransferDto = {
             amount: 100,
             destination: 2,
             source: 1,
             transaction_pin: "1234"
-        } as CreateTransferDto;
+        };
 
         const req = {
             userId: 1,
-            body
+            body,
+            headers: {} 
         }
 
         it("should transfer funds successfully", async () => {
-            const compare = jest.spyOn(bcyrpt, 'compare').mockImplementationOnce((x, y) => Promise.resolve(true));
+            const compare = jest.spyOn(bcrypt, 'compare').mockImplementationOnce((x, y) => Promise.resolve(true));
             jest.spyOn(db, 'transaction').mockResolvedValue(null);
 
             const find = jest.spyOn(accountsRepository, 'find').mockResolvedValueOnce({ balance: 100, account_number: 2, owner: 1, transaction_pin: "1234" });
@@ -145,7 +154,8 @@ describe('AccountsController', () => {
                 userId: 1,
                 body: {
                     amount: -100
-                }
+                },
+                headers: {} 
             }
             await accountsController.transfer(req as any, res as any);
     
@@ -193,7 +203,8 @@ describe('AccountsController', () => {
                     destination: 1,
                     source: 1,
                     transaction_pin: "1234"
-                }
+                },
+                headers: {} 
             }
             await accountsController.transfer(req as any, res as any);
     
@@ -210,17 +221,18 @@ describe('AccountsController', () => {
             status: jest.fn().mockReturnThis(),
             json: jest.fn()
         }
-        const body : WithdrawalDto = {
+        const body: WithdrawalDto = {
             amount: 100,
             transaction_pin: "1234",
             source: 1,
             destination: 3, // external bank account
             destinationBankName: "GTB"
-        } 
+        }; 
 
         const req = {
             userId: 1,
-            body
+            body,
+            headers: {} 
         }
 
         it("should withdraw funds successfully", async () => {
@@ -233,7 +245,7 @@ describe('AccountsController', () => {
     
             const find = jest.spyOn(accountsRepository, 'find').mockResolvedValueOnce(mockOwner);
             
-            jest.spyOn(bcyrpt, "compare").mockImplementationOnce(() => Promise.resolve(true));
+            jest.spyOn(bcrypt, "compare").mockImplementationOnce(() => Promise.resolve(true));
             jest.spyOn(db, 'transaction').mockResolvedValue(null);
     
             await accountsController.withdraw(req as any, res as any);

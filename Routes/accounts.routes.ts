@@ -8,7 +8,7 @@ import IsAuthenticated from '../middlewares/auth.middleware';
 import idempotencyMiddleWare from '../middlewares/idepotency.middleware';
 import AccountController from '../controllers/account.controller';
 import AccountRepository from '../repositories/account.repository';
-import customCache from '../utils/cutom-cache';
+import customCache from '../utils/custom-cache';
 
 const Router = express.Router();
 
