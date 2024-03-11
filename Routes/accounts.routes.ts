@@ -5,16 +5,18 @@
 import express from 'express';
 
 import IsAuthenticated from '../middlewares/auth.middleware';
+import idempotencyMiddleWare from '../middlewares/idepotency.middleware';
 import AccountController from '../controllers/account.controller';
 import AccountRepository from '../repositories/account.repository';
+import customCache from '../utils/cutom-cache';
 
 const Router = express.Router();
 
 const accountsRepository = new AccountRepository();
-const accountsController = new AccountController(accountsRepository)
+const accountsController = new AccountController(accountsRepository, customCache);
 
-Router.post("/deposit", IsAuthenticated, accountsController.deposit);
-Router.post("/transfer", IsAuthenticated, accountsController.transfer);
-Router.post("/withdraw", IsAuthenticated, accountsController.withdraw);
+Router.post("/deposit", [IsAuthenticated, idempotencyMiddleWare], accountsController.deposit);
+Router.post("/transfer", [IsAuthenticated, idempotencyMiddleWare], accountsController.transfer);
+Router.post("/withdraw", [IsAuthenticated, idempotencyMiddleWare], accountsController.withdraw);
 
 export default Router;
